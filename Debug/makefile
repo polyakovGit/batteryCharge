@@ -60,8 +60,8 @@ all: main-build
 main-build: batteryCharge.elf secondary-outputs
 
 # Tool invocations
-batteryCharge.elf batteryCharge.map: $(OBJS) $(USER_OBJS) C:\Users\augus\Desktop\STM32\batteryCharge\STM32F072C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "batteryCharge.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0 -T"C:\Users\augus\Desktop\STM32\batteryCharge\STM32F072C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="batteryCharge.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+batteryCharge.elf batteryCharge.map: $(OBJS) $(USER_OBJS) C:\Users\i.polyakov\Desktop\STM32\batteryCharge\STM32F072C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "batteryCharge.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0 -T"C:\Users\i.polyakov\Desktop\STM32\batteryCharge\STM32F072C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="batteryCharge.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
