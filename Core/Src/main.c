@@ -41,7 +41,7 @@
 #define indication_reset() HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET)
 #define indication_strob() cs_reset();cs_set()
 
-#define I2C_ADDRESS                                              0x70
+#define I2C_ADDRESS                                              0x70<<1
 #define I2C_ID_ADDRESS                                           0x08
 #define I2C_TIMEOUT                                              10
 /* USER CODE END PD */
@@ -230,11 +230,12 @@ int main(void) {
 //	float voltage_value=value*2.44;
 	uint8_t test_data[2]={0,0};
 	HAL_StatusTypeDef stat;
-	stat=HAL_I2C_Mem_Read(&hi2c1,(uint16_t) I2C_ADDRESS<<1, 0x08, I2C_MEMADD_SIZE_8BIT, test_data, 2, 10);
-	uint16_t high_byte = test_data[1];
-	high_byte <<= 8;
-	uint16_t value = (high_byte & 0xFF00) | test_data[0];
-	float voltage_value = value * 2.44;
+	uint8_t Check=0x00;
+	stat=HAL_I2C_Mem_Read(&hi2c1,0x70<<1, 0x08, 1, &Check, 1, HAL_MAX_DELAY);
+//	uint16_t high_byte = test_data[1];
+//	high_byte <<= 8;
+//	uint16_t value = (high_byte & 0xFF00) | test_data[0];
+//	float voltage_value = value * 2.44;
 	RGs_Attr_Init();
 	//cs_reset();
 	//HAL_SPI_Transmit(&hspi1, &spi2_data, 1, 5000);//

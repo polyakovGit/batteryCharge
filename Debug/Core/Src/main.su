@@ -4,10 +4,10 @@
 ../Core/Src/main.c:155:6:number_to_indicator	40	static
 ../Core/Src/main.c:170:6:update_indication	16	static
 ../Core/Src/main.c:186:6:HAL_TIM_PeriodElapsedCallback	16	static
-../Core/Src/main.c:198:5:main	48	static
-../Core/Src/main.c:263:6:SystemClock_Config	112	static
-../Core/Src/main.c:302:13:MX_I2C1_Init	8	static
-../Core/Src/main.c:346:13:MX_SPI2_Init	8	static
-../Core/Src/main.c:384:13:MX_TIM1_Init	32	static
-../Core/Src/main.c:426:13:MX_GPIO_Init	48	static
-../Core/Src/main.c:471:6:Error_Handler	8	static,ignoring_inline_asm
+../Core/Src/main.c:198:5:main	56	static
+../Core/Src/main.c:264:6:SystemClock_Config	112	static
+../Core/Src/main.c:303:13:MX_I2C1_Init	8	static
+../Core/Src/main.c:347:13:MX_SPI2_Init	8	static
+../Core/Src/main.c:385:13:MX_TIM1_Init	32	static
+../Core/Src/main.c:427:13:MX_GPIO_Init	48	static
+../Core/Src/main.c:472:6:Error_Handler	8	static,ignoring_inline_asm
