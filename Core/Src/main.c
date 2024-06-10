@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -31,7 +31,15 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define RGS_NUMBER 9
+#define HR_RGS_NUMBER 3
+#define SPO2_RGS_NUMBER 3
+#define BAR_L_RGS_NUMBER 1
+#define BAR_R_RGS_NUMBER 1
 
+#define indication_set() HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET)
+#define indication_reset() HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET)
+#define indication_strob() cs_reset();cs_set()
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -44,29 +52,57 @@ I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi2;
 
-/* USER CODE BEGIN PV */
-#define RGS_NUMBER 9
-#define HR_RGS_NUMBER 3
-#define SPO2_RGS_NUMBER 3
-#define BAR_L_RGS_NUMBER 1
-#define BAR_R_RGS_NUMBER 1
+TIM_HandleTypeDef htim1;
 
-#define cs_set() HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET)
-#define cs_reset() HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET)
-#define cs_strob() cs_reset();cs_set()
-/* USER CODE END PV */
+/* USER CODE BEGIN PV */
+typedef struct {
+	uint8_t RG_off;
+	uint8_t RG_on;
+	uint8_t mixled_off;
+	uint8_t mixled_on;
+	//uint8_t RG9 = 0b00000000, //диоды справа [0]
+	//		RG8 = 0b00000000, //середина верхний [1]
+	//		RG7 = 0b00000000, //верхний слева [2]
+	//		RG6 = 0b00000000, //верхний справа [3]
+	//		RG5 = 0b01110000, //mixled [4]
+	//		RG4 = 0b00000000, //диоды слева [5]
+	//		RG3 = 0b00000000, //середина нижний [6]
+	//		RG2 = 0b00000000, //левый нижний [7]
+	//		RG1 = 0b00000000; //правый нижний [8]
+	uint8_t all_RGs_on[RGS_NUMBER];
+	uint8_t all_RGs_off[RGS_NUMBER];
+	uint8_t all_RGs_custom[RGS_NUMBER];
+} RGs_Attr;
+
+RGs_Attr RGs;
+
+static void RGs_Attr_Init() {
+	RGs.RG_off = 0b11111111;
+	RGs.RG_on = 0b00000000;
+	RGs.mixled_off = 0b10001110;
+	RGs.mixled_on = 0b01110000;
+	for (uint8_t i = 0; i < RGS_NUMBER; ++i) {
+		RGs.all_RGs_on[i] = RGs.RG_on;
+		RGs.all_RGs_custom[i] = RGs.all_RGs_off[i] = RGs.RG_off;
+	}
+
+	RGs.all_RGs_on[4] = RGs.mixled_on;
+	RGs.all_RGs_custom[4]=RGs.all_RGs_off[4] = RGs.mixled_off;
+}
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI2_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
 uint8_t symbol_transform(unsigned char symbol) {
 	uint8_t sym_to_indicator = 0;
 	switch (symbol) {
@@ -105,6 +141,43 @@ uint8_t symbol_transform(unsigned char symbol) {
 	}
 	return sym_to_indicator;
 }
+
+uint8_t getInfo() {
+	return 8;
+}
+void number_to_indicator(float number, bool voltage) {
+	if (voltage) {
+		//2 1 3 RGs
+		number = 3.14;
+		uint8_t integer, fraction;
+		integer = number;
+		fraction = (number - integer) * 100;
+		RGs.all_RGs_custom[2] = symbol_transform(integer) & symbol_transform('.');
+		RGs.all_RGs_custom[1] = symbol_transform(fraction / 10);
+		RGs.all_RGs_custom[3] = symbol_transform(fraction % 10);
+	}
+	else {
+		// 7 6 8
+	}
+
+}
+void update_indication(bool indication, bool voltage) {
+	if (indication) {
+		number_to_indicator(3.14, voltage);
+		HAL_SPI_Transmit(&hspi2, (uint8_t*) RGs.all_RGs_custom, RGS_NUMBER, 5000);  //SN74HC595N
+	} else {
+		HAL_SPI_Transmit(&hspi2, (uint8_t*) RGs.all_RGs_off, RGS_NUMBER, 5000);  //SN74HC595N
+	}
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim->Instance == TIM1) //check if the interrupt comes from TIM1
+	{
+		update_indication(false,true);//добавить переменные индикации и измеряемой переменной
+	}
+}
 /* USER CODE END 0 */
 
 /**
@@ -114,20 +187,7 @@ uint8_t symbol_transform(unsigned char symbol) {
 int main(void) {
 
 	/* USER CODE BEGIN 1 */
-	uint8_t RG_off = 0b11111111; //all off
-	uint8_t mixled_off = 0b10001110; //all mixled off
-	uint8_t RG9 = 0b00000000, //диоды справа
-			RG8 = 0b00000000, //середина верхний
-			RG7 = 0b00000000, //верхний слева
-			RG6 = 0b00000000, //верхний справа
-			RG5 = 0b01110000, //mixled
-			RG4 = 0b00000000, //диоды слева
-			RG3 = 0b00000000, //середина нижний
-			RG2 = 0b00000000, //левый нижний
-			RG1 = 0b00000000; //правый нижний
-	uint8_t transmit_data_all_RGs_on[RGS_NUMBER] = { RG9, RG8, RG7, RG6, RG5, RG4, RG3, RG2, RG1};
-	uint8_t transmit_data_all_RGs_off[RGS_NUMBER] = { RG_off, RG_off, RG_off, RG_off, mixled_off, RG_off, RG_off,
-			RG_off,RG_off };
+
 	/* USER CODE END 1 */
 
 	/* MCU Configuration--------------------------------------------------------*/
@@ -150,13 +210,16 @@ int main(void) {
 	MX_GPIO_Init();
 	MX_I2C1_Init();
 	MX_SPI2_Init();
+	MX_TIM1_Init();
 	/* USER CODE BEGIN 2 */
+	RGs_Attr_Init();
 	//cs_reset();
 	//HAL_SPI_Transmit(&hspi1, &spi2_data, 1, 5000);//
-	HAL_SPI_Transmit(&hspi2, (uint8_t*)transmit_data_all_RGs_off, RGS_NUMBER, 5000);  //SN74HC595N
+	HAL_SPI_Transmit(&hspi2, (uint8_t*) RGs.all_RGs_off, RGS_NUMBER, 5000);  //SN74HC595N
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
-
+	__HAL_TIM_CLEAR_FLAG(&htim1, TIM_SR_UIF);//подождать 4 секунды для STC3100
+	HAL_TIM_Base_Start_IT(&htim1);
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -165,10 +228,7 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-//	  HAL_SPI_Transmit(&hspi2, (uint8_t*)transmit_data_all_on, 9, 5000);//SN74HC595N нижние индикаторы
-//	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
-//	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
-//	  HAL_Delay(1000);
+
 	}
 	/* USER CODE END 3 */
 }
@@ -290,6 +350,48 @@ static void MX_SPI2_Init(void) {
 	/* USER CODE BEGIN SPI2_Init 2 */
 
 	/* USER CODE END SPI2_Init 2 */
+
+}
+
+/**
+ * @brief TIM1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM1_Init(void) {
+
+	/* USER CODE BEGIN TIM1_Init 0 */
+
+	/* USER CODE END TIM1_Init 0 */
+
+	TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
+	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
+
+	/* USER CODE BEGIN TIM1_Init 1 */
+
+	/* USER CODE END TIM1_Init 1 */
+	htim1.Instance = TIM1;
+	htim1.Init.Prescaler = 3839;
+	htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim1.Init.Period = 49999;
+	htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim1.Init.RepetitionCounter = 0;
+	htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	if (HAL_TIM_Base_Init(&htim1) != HAL_OK) {
+		Error_Handler();
+	}
+	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+	if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK) {
+		Error_Handler();
+	}
+	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN TIM1_Init 2 */
+
+	/* USER CODE END TIM1_Init 2 */
 
 }
 
