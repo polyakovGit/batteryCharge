@@ -40,6 +40,10 @@
 #define indication_set() HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET)
 #define indication_reset() HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET)
 #define indication_strob() cs_reset();cs_set()
+
+#define I2C_ADDRESS                                              0x70
+#define I2C_ID_ADDRESS                                           0x08
+#define I2C_TIMEOUT                                              10
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -55,6 +59,9 @@ SPI_HandleTypeDef hspi2;
 TIM_HandleTypeDef htim1;
 
 /* USER CODE BEGIN PV */
+uint8_t regData[2] = { 0, 0 };
+uint8_t regAddress = I2C_ID_ADDRESS;
+
 typedef struct {
 	uint8_t RG_off;
 	uint8_t RG_on;
@@ -87,7 +94,7 @@ static void RGs_Attr_Init() {
 	}
 
 	RGs.all_RGs_on[4] = RGs.mixled_on;
-	RGs.all_RGs_custom[4]=RGs.all_RGs_off[4] = RGs.mixled_off;
+	RGs.all_RGs_custom[4] = RGs.all_RGs_off[4] = RGs.mixled_off;
 }
 
 /* Private function prototypes -----------------------------------------------*/
@@ -142,8 +149,8 @@ uint8_t symbol_transform(unsigned char symbol) {
 	return sym_to_indicator;
 }
 
-uint8_t getInfo() {
-	return 8;
+float getInfo() {
+	return 3.14;
 }
 void number_to_indicator(float number, bool voltage) {
 	if (voltage) {
@@ -155,15 +162,19 @@ void number_to_indicator(float number, bool voltage) {
 		RGs.all_RGs_custom[2] = symbol_transform(integer) & symbol_transform('.');
 		RGs.all_RGs_custom[1] = symbol_transform(fraction / 10);
 		RGs.all_RGs_custom[3] = symbol_transform(fraction % 10);
-	}
-	else {
+	} else {
 		// 7 6 8
 	}
 
 }
 void update_indication(bool indication, bool voltage) {
 	if (indication) {
-		number_to_indicator(3.14, voltage);
+//		HAL_I2C_Master_Receive(&hi2c1, I2C_ADDRESS, (uint8_t *)regData, 2, I2C_TIMEOUT);
+//		uint16_t high_byte=regData[1];
+//		high_byte<<=8;
+//		uint16_t value=(high_byte& 0xff00)|regData[0];
+//		float voltage_value=value*2.44;
+//		number_to_indicator(voltage_value, voltage);
 		HAL_SPI_Transmit(&hspi2, (uint8_t*) RGs.all_RGs_custom, RGS_NUMBER, 5000);  //SN74HC595N
 	} else {
 		HAL_SPI_Transmit(&hspi2, (uint8_t*) RGs.all_RGs_off, RGS_NUMBER, 5000);  //SN74HC595N
@@ -175,7 +186,7 @@ void update_indication(bool indication, bool voltage) {
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance == TIM1) //check if the interrupt comes from TIM1
 	{
-		update_indication(false,true);//добавить переменные индикации и измеряемой переменной
+		update_indication(false, true); //добавить переменные индикации и измеряемой переменной
 	}
 }
 /* USER CODE END 0 */
@@ -212,13 +223,25 @@ int main(void) {
 	MX_SPI2_Init();
 	MX_TIM1_Init();
 	/* USER CODE BEGIN 2 */
+//	HAL_I2C_Master_Receive(&hi2c1, I2C_ADDRESS<<1, (uint8_t *)regData, 2, I2C_TIMEOUT);
+//	uint16_t high_byte=regData[0];
+//	high_byte<<=8;
+//	uint16_t value=(high_byte& 0xFF0)|regData[1];
+//	float voltage_value=value*2.44;
+	uint8_t test_data[2]={0,0};
+	HAL_StatusTypeDef stat;
+	stat=HAL_I2C_Mem_Read(&hi2c1,(uint16_t) I2C_ADDRESS<<1, 0x08, I2C_MEMADD_SIZE_8BIT, test_data, 2, 10);
+	uint16_t high_byte = test_data[1];
+	high_byte <<= 8;
+	uint16_t value = (high_byte & 0xFF00) | test_data[0];
+	float voltage_value = value * 2.44;
 	RGs_Attr_Init();
 	//cs_reset();
 	//HAL_SPI_Transmit(&hspi1, &spi2_data, 1, 5000);//
 	HAL_SPI_Transmit(&hspi2, (uint8_t*) RGs.all_RGs_off, RGS_NUMBER, 5000);  //SN74HC595N
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
-	__HAL_TIM_CLEAR_FLAG(&htim1, TIM_SR_UIF);//подождать 4 секунды для STC3100
+	__HAL_TIM_CLEAR_FLAG(&htim1, TIM_SR_UIF);  //подождать 4 секунды для STC3100
 	HAL_TIM_Base_Start_IT(&htim1);
 	/* USER CODE END 2 */
 
