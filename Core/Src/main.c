@@ -156,7 +156,7 @@ float getInfo() {
 void number_to_indicator(float number, bool voltage) {
 	if (voltage) {
 		//2 1 3 RGs
-		number = 3.14;
+		//number = 3.14;
 		uint8_t integer, fraction;
 		integer = number;
 		fraction = (number - integer) * 100;
@@ -175,7 +175,7 @@ void update_indication(bool indication, bool voltage) {
 //		high_byte<<=8;
 //		uint16_t value=(high_byte& 0xff00)|regData[0];
 //		float voltage_value=value*2.44;
-//		number_to_indicator(voltage_value, voltage);
+		number_to_indicator(3.14, voltage);
 		HAL_SPI_Transmit(&hspi2, (uint8_t*) RGs.all_RGs_custom, RGS_NUMBER, 5000);  //SN74HC595N
 	} else {
 		HAL_SPI_Transmit(&hspi2, (uint8_t*) RGs.all_RGs_off, RGS_NUMBER, 5000);  //SN74HC595N
@@ -225,17 +225,20 @@ int main(void)
   MX_SPI2_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+  HAL_Delay(100);//предположение
 //	HAL_I2C_Master_Receive(&hi2c1, I2C_ADDRESS<<1, (uint8_t *)regData, 2, I2C_TIMEOUT);
 //	uint16_t high_byte=regData[0];
 //	high_byte<<=8;
 //	uint16_t value=(high_byte& 0xFF0)|regData[1];
 //	float voltage_value=value*2.44;
-	uint8_t test_data[2]={0,0};
+
+//	uint8_t test_data[2]={0,0};
 	HAL_StatusTypeDef stat;
 	uint8_t check=0x00;
-	//0x70 STC3100
-	//0x72 temp
-	stat=HAL_I2C_Mem_Read(&hi2c1,0x70<<1, 0x08, 1, &check, 1, HAL_MAX_DELAY);
+//	//0x70 STC3100
+//	//0x72 temp
+	stat=HAL_I2C_Mem_Read(&hi2c1,0x70<<1, 0x00, 1, &check, 1, 0xFFFF);
+
 //	uint16_t high_byte = test_data[1];
 //	high_byte <<= 8;
 //	uint16_t value = (high_byte & 0xFF00) | test_data[0];
